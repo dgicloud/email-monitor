@@ -3,7 +3,7 @@ import os
 import re
 import time
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import Dict, List, Optional
 import requests
 
 LOG_PATTERNS = {
@@ -224,7 +224,7 @@ class Agent:
         if len(self.qid_cache) > self.max_qid_cache:
             self.qid_cache.pop(next(iter(self.qid_cache)))
 
-    def _flush_qid(self, qid: str) -> Dict | None:
+    def _flush_qid(self, qid: str) -> Optional[Dict]:
         c = self.qid_cache.pop(qid, None)
         if not c:
             return None
