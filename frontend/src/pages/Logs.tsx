@@ -85,25 +85,25 @@ export default function Logs() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-        <select className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" value={server} onChange={e=>{setPage(1); setServer(e.target.value)}}>
+        <select className="border border-gray-300 dark:border-gray-700 rounded px-3 py-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" value={server} onChange={e=>{setPage(1); setServer(e.target.value)}}>
           <option value="">Todos servidores</option>
           {servers.map(s=> <option key={s} value={s}>{s}</option>)}
         </select>
-        <input placeholder="Email" className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" value={email} onChange={e=>{setPage(1); setEmail(e.target.value)}} />
-        <select className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" value={kind} onChange={e=>{setPage(1); setKind(e.target.value)}}>
+        <input placeholder="Email" className="border border-gray-300 dark:border-gray-700 rounded px-3 py-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500" value={email} onChange={e=>{setPage(1); setEmail(e.target.value)}} />
+        <select className="border border-gray-300 dark:border-gray-700 rounded px-3 py-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" value={kind} onChange={e=>{setPage(1); setKind(e.target.value)}}>
           <option value="">Todos tipos</option>
           <option value="mainlog">mainlog</option>
           <option value="rejectlog">rejectlog</option>
           <option value="paniclog">paniclog</option>
         </select>
-        <select className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" value={status} onChange={e=>{setPage(1); setStatus(e.target.value)}}>
+        <select className="border border-gray-300 dark:border-gray-700 rounded px-3 py-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" value={status} onChange={e=>{setPage(1); setStatus(e.target.value)}}>
           <option value="">Todos status</option>
           <option value="accepted">accepted</option>
           <option value="rejected">rejected</option>
           <option value="deferred">deferred</option>
           <option value="failed">failed</option>
         </select>
-        <select className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" value={String(limit)} onChange={e=>{setPage(1); setLimit(parseInt(e.target.value))}}>
+        <select className="border border-gray-300 dark:border-gray-700 rounded px-3 py-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" value={String(limit)} onChange={e=>{setPage(1); setLimit(parseInt(e.target.value))}}>
           <option value="25">25</option>
           <option value="50">50</option>
           <option value="100">100</option>

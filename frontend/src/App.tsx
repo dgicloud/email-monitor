@@ -32,7 +32,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   }
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      <nav className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-gray-900/60 bg-white/90 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-800">
+      <nav className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:supports-[backdrop-filter]:bg-gray-800/60 bg-white/90 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
           <div className="flex items-center gap-2">
             <img src="/favicon.svg" alt="Logo" className="h-7 w-7" />
