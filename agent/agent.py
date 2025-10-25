@@ -203,6 +203,7 @@ class Agent:
             "tls": None,
             "size": None,
             "reply": None,
+            "emitted_received": False,
         }
         c["last_ts"] = ev["timestamp"]
         if ev.get("sender"): c["sender"] = ev["sender"]
@@ -300,7 +301,21 @@ class Agent:
                             if flushed:
                                 batch.append(flushed)
                             continue
+                        # Update cache and emit immediate 'received' if not yet emitted
                         self._update_qid_cache(ev)
+                        c = self.qid_cache.get(ev["qid"])
+                        if ev.get("status") == "received" and c and not c.get("emitted_received"):
+                            batch.append({
+                                "server_name": self.cfg.get("server_name"),
+                                "kind": "mainlog",
+                                "timestamp": ev.get("timestamp"),
+                                "sender": ev.get("sender"),
+                                "recipient": ev.get("recipient"),
+                                "status": "received",
+                                "message": None,
+                                "message_id": ev.get("message_id"),
+                            })
+                            c["emitted_received"] = True
                         continue
                     # No QID: keep only if has meaningful fields
                     if not (ev.get("sender") or ev.get("recipient") or ev.get("message_id") or ev.get("status")):
