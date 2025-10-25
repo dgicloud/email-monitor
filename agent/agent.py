@@ -60,6 +60,18 @@ class Agent:
         self.qid_cache: Dict[str, Dict] = {}
         self.qid_flush_seconds = int(self.cfg.get("qid_flush_seconds", 600))
         self.max_qid_cache = int(self.cfg.get("max_qid_cache", 10000))
+        self.verbose = bool(self.cfg.get("verbose", False))
+
+    def _norm_addr(self, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return v
+        v = v.strip()
+        # remove optional display name remnants and angle brackets
+        if v.startswith('<') and v.endswith('>'):
+            v = v[1:-1]
+        # remove trailing comma/semicolon
+        v = v.rstrip(',;')
+        return v
 
     def _load_state(self) -> Dict:
         if os.path.exists(self.state_path):
@@ -167,6 +179,9 @@ class Agent:
             if m:
                 ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
                 status = "panic"
+        # normalize addresses
+        sender = self._norm_addr(sender)
+        recipient = self._norm_addr(recipient)
         ev = {
             "server_name": self.cfg.get("server_name"),
             "kind": kind,
@@ -204,6 +219,8 @@ class Agent:
             "size": None,
             "reply": None,
             "emitted_received": False,
+            "emitted_delivered": False,
+            "emitted_accepted": False,
         }
         c["last_ts"] = ev["timestamp"]
         if ev.get("sender"): c["sender"] = ev["sender"]
@@ -315,7 +332,37 @@ class Agent:
                                 "message": None,
                                 "message_id": ev.get("message_id"),
                             })
+                            if self.verbose:
+                                print(f"[agent] received qid={ev.get('qid')} sender={ev.get('sender')} recipient={ev.get('recipient')}")
                             c["emitted_received"] = True
+                        elif ev.get("status") == "delivered" and c and not c.get("emitted_delivered"):
+                            batch.append({
+                                "server_name": self.cfg.get("server_name"),
+                                "kind": "mainlog",
+                                "timestamp": ev.get("timestamp"),
+                                "sender": ev.get("sender"),
+                                "recipient": ev.get("recipient"),
+                                "status": "delivered",
+                                "message": ev.get("meta", {}).get("reply"),
+                                "message_id": ev.get("message_id"),
+                            })
+                            if self.verbose:
+                                print(f"[agent] delivered qid={ev.get('qid')} recipient={ev.get('recipient')}")
+                            c["emitted_delivered"] = True
+                        elif ev.get("status") == "accepted" and c and not c.get("emitted_accepted"):
+                            batch.append({
+                                "server_name": self.cfg.get("server_name"),
+                                "kind": "mainlog",
+                                "timestamp": ev.get("timestamp"),
+                                "sender": ev.get("sender"),
+                                "recipient": ev.get("recipient"),
+                                "status": "accepted",
+                                "message": None,
+                                "message_id": ev.get("message_id"),
+                            })
+                            if self.verbose:
+                                print(f"[agent] accepted qid={ev.get('qid')} recipient={ev.get('recipient')}")
+                            c["emitted_accepted"] = True
                         continue
                     # No QID: keep only if has meaningful fields
                     if not (ev.get("sender") or ev.get("recipient") or ev.get("message_id") or ev.get("status")):
@@ -331,9 +378,13 @@ class Agent:
             headers = {"X-API-Key": self.cfg.get("api_key")}
             url = self.cfg.get("api_url")
             try:
+                if self.verbose:
+                    print(f"[agent] posting batch size={len(batch)} to {url}")
                 r = requests.post(url, json=batch, headers=headers, timeout=10)
                 r.raise_for_status()
             except Exception as e:
+                if self.verbose:
+                    print(f"[agent] post error: {e}")
                 return
         self.state["offsets"] = offsets
         self._save_state()
