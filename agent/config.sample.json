@@ -1,0 +1,13 @@
+{
+  "server_name": "cpanel01",
+  "api_url": "http://localhost:8000/api/maillog",
+  "api_key": "CHANGE_ME",
+  "logs": {
+    "mainlog": "/var/log/exim_mainlog",
+    "rejectlog": "/var/log/exim_rejectlog",
+    "paniclog": "/var/log/exim_paniclog"
+  },
+  "interval_seconds": 10,
+  "batch_size": 200,
+  "state_file": "/var/lib/email-monitor/state.json"
+}
