@@ -9,7 +9,7 @@ export default function Servers() {
   const [error, setError] = useState<string | null>(null)
 
   const fetchServers = async () => {
-    const res = await api.get<Server[]>('/api/servers')
+    const res = await api.get<Server[]>('/servers')
     setServers(res.data)
   }
   useEffect(() => { fetchServers() }, [])
@@ -17,7 +17,7 @@ export default function Servers() {
   const register = async () => {
     setError(null)
     try {
-      const res = await api.get<Server>('/api/servers/register', { params: { name } })
+      const res = await api.get<Server>('/servers/register', { params: { name } })
       setName('')
       await fetchServers()
       alert(`Servidor criado. api_key: ${res.data.api_key}`)
@@ -29,7 +29,7 @@ export default function Servers() {
   const remove = async (id: number) => {
     if (!confirm('Remover este servidor? Os logs associados serão excluídos.')) return
     try {
-      await api.delete(`/api/servers/${id}`)
+      await api.delete(`/servers/${id}`)
       await fetchServers()
     } catch (e: any) {
       alert(e?.response?.data?.detail || 'Erro ao remover')

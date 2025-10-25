@@ -20,9 +20,9 @@ export default function Dashboard() {
   const load = async () => {
     setLoading(true)
     const [s, t] = await Promise.all([
-      api.get<Summary>('/api/maillog/kpi/summary?hours=24'),
+      api.get<Summary>('/maillog/kpi/summary?hours=24'),
       api.get<{ last_hours: number; since: string; series: SeriesPoint[] }>(
-        '/api/maillog/kpi/timeseries?hours=24'
+        '/maillog/kpi/timeseries?hours=24'
       ),
     ])
     setSummary(s.data)
