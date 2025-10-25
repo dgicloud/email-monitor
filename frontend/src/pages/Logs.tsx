@@ -36,14 +36,14 @@ export default function Logs() {
     if (email) params.email = email
     if (kind) params.kind = kind
     if (status) params.status = status
-    const res = await api.get<LogItem[]>('/api/maillog', { params })
+    const res = await api.get<LogItem[]>('/maillog', { params })
     setItems(res.data)
     setLoading(false)
   }
 
   // servers list for dropdown
   useEffect(() => {
-    api.get<{ id:number; name:string }[]>('/api/servers').then(r => setServers(r.data.map(s=>s.name)))
+    api.get<{ id:number; name:string }[]>('/servers').then(r => setServers(r.data.map(s=>s.name)))
   }, [])
 
   // initial load
