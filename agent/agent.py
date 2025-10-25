@@ -7,7 +7,38 @@ from typing import Dict, List
 import requests
 
 LOG_PATTERNS = {
-    "mainlog": re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*<= (?P<recipient>\S+)|=> (?P<to>\S+).* from <(?P<from>[^>]*)>.*\bmsgid=(?P<msgid>\S+).*\bstatus=(?P<status>\S+)?"),
+    "main_in": re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+(?P<qid>\S+)\s+<=\s+(?P<sender>\S+).*?(?:\bid=(?P<msgid>\S+))?.*?(?:\bfor\s+(?P<recipient>\S+))?",
+        re.IGNORECASE,
+    ),
+    "main_out": re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+(?P<qid>\S+)\s+=>\s+(?P<recipient>\S+).*",
+        re.IGNORECASE,
+    ),
+    "defer": re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+(?P<qid>\S+)\s+==\s+(?P<recipient>\S+)\s+.*?\bdefer.*?:\s*(?P<reason>.*)$",
+        re.IGNORECASE,
+    ),
+    "warning": re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+(?P<qid>\S+)\s+<=\s+<>.*?T=\"(?P<subject>[^\"]*)\"\s+for\s+(?P<recipient>\S+)",
+        re.IGNORECASE,
+    ),
+    # Local delivery with name and email in angle brackets, e.g.:
+    # 2025-10-25 ... => marcosampaio <marcosampaio@dom.com> ... Saved
+    "delivered_local": re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+(?P<qid>\S+)\s+=>\s+(?:[^<]*<)?(?P<recipient>[^>]+)>.*(?:\bSaved\b)",
+        re.IGNORECASE,
+    ),
+    "sender_id": re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+Sender identification .*\bS=(?P<sender>\S+)$",
+        re.IGNORECASE,
+    ),
+    # Authentication failures from dovecot_login:
+    # 2025-10-25 ... dovecot_login authenticator failed ... (set_id=user@dom)
+    "auth_failed": re.compile(
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*dovecot_login authenticator failed.*\(set_id=(?P<user>[^\)]+)\)",
+        re.IGNORECASE,
+    ),
     "rejectlog": re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*rejected.*<(?P<from>[^>]*)> -> (?P<recipient>\S+): (?P<error>.*)$"),
     "paniclog": re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*$"),
 }
@@ -37,13 +68,51 @@ class Agent:
         message = line.strip()
         message_id = None
         if kind == "mainlog":
-            m = LOG_PATTERNS["mainlog"].match(line)
+            m = LOG_PATTERNS["main_in"].match(line)
             if m:
                 ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
-                sender = m.group("from")
-                recipient = m.group("recipient") or m.group("to")
-                status = m.group("status")
-                message_id = m.group("msgid")
+                sender = m.group("sender")
+                recipient = m.group("recipient") or recipient
+                message_id = m.group("msgid") or message_id
+                status = status or "received"
+            else:
+                m = LOG_PATTERNS["main_out"].match(line)
+                if m:
+                    ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
+                    recipient = m.group("recipient")
+                    status = status or "delivered"
+                else:
+                    m = LOG_PATTERNS["defer"].match(line)
+                    if m:
+                        ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
+                        recipient = m.group("recipient")
+                        status = "deferred"
+                        message = m.group("reason") or message
+                    else:
+                        m = LOG_PATTERNS["delivered_local"].match(line)
+                        if m:
+                            ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
+                            recipient = m.group("recipient")
+                            status = "accepted"
+                        else:
+                            m = LOG_PATTERNS["warning"].match(line)
+                            if m:
+                                ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
+                                recipient = m.group("recipient")
+                                status = "warning"
+                                message = m.group("subject") or message
+                            else:
+                                m = LOG_PATTERNS["sender_id"].match(line)
+                                if m:
+                                    ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
+                                    sender = m.group("sender")
+                                else:
+                                    m = LOG_PATTERNS["auth_failed"].match(line)
+                                    if m:
+                                        ts = datetime.strptime(m.group("ts"), "%Y-%m-%d %H:%M:%S")
+                                        sender = m.group("user")
+                                        status = "failed"
+                                        message = "dovecot_login authenticator failed"
         elif kind == "rejectlog":
             m = LOG_PATTERNS["rejectlog"].match(line)
             if m:
@@ -89,6 +158,9 @@ class Agent:
             lines, new_off = self._read_new_lines(path, off)
             for line in lines:
                 item = self._parse_line(kind, line)
+                # Skip noise-only lines (connections, no host name, etc.)
+                if kind == "mainlog" and not (item.get("sender") or item.get("recipient") or item.get("message_id") or item.get("status")):
+                    continue
                 batch.append(item)
             offsets[path] = new_off
         if batch:
