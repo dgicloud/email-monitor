@@ -125,4 +125,4 @@ docker compose logs -f backend
 - Cadastro/gerenciamento de usuários via frontend: virá na próxima atualização. Por enquanto, use o endpoint de seed para criar o admin e autenticar via login.
 
 ## Licença
-MIT (ou ajuste conforme seu projeto).
+MIT.
