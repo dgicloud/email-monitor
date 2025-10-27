@@ -11,7 +11,7 @@ export default function Login() {
     e.preventDefault()
     setError(null)
     try {
-      const res = await api.post('/api/login', { email, password })
+      const res = await api.post('/login', { email, password })
       localStorage.setItem('token', res.data.access_token)
       toast.success('Login realizado com sucesso')
       window.location.href = '/'
