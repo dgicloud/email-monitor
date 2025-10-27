@@ -8,7 +8,7 @@ import requests
 
 LOG_PATTERNS = {
     "main_in": re.compile(
-        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+(?P<qid>\S+)\s+<=\s+(?P<sender>\S+).*?(?:\bid=(?P<msgid>\S+))?.*?(?:\bfor\s+(?P<recipient>\S+))?",
+        r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\S+\s+(?P<qid>\S+)\s+<=\s+(?P<sender>\S+).*?(?:\bid=(?P<msgid>\S+))?.*?(?:\bfor\s+(?P<recipient>.+))?",
         re.IGNORECASE,
     ),
     "main_out": re.compile(
@@ -61,11 +61,19 @@ class Agent:
         self.qid_flush_seconds = int(self.cfg.get("qid_flush_seconds", 600))
         self.max_qid_cache = int(self.cfg.get("max_qid_cache", 10000))
         self.verbose = bool(self.cfg.get("verbose", False))
+        self._pending_sender = {"value": None, "ts": None}
 
     def _norm_addr(self, v: Optional[str]) -> Optional[str]:
         if not v:
             return v
         v = v.strip()
+        # if multiple addresses separated by whitespace or comma/semicolon, take the first
+        if ' ' in v:
+            v = v.split()[0]
+        if ',' in v:
+            v = v.split(',', 1)[0]
+        if ';' in v:
+            v = v.split(';', 1)[0]
         # remove optional display name remnants and angle brackets
         if v.startswith('<') and v.endswith('>'):
             v = v[1:-1]
@@ -311,7 +319,26 @@ class Agent:
                 ev = self._parse_line(kind, line)
                 # Skip noise-only lines for mainlog unless correlated via QID
                 if kind == "mainlog":
+                    # If this is a sender-only line (no QID), keep pending sender for short window
+                    if not ev.get("qid") and ev.get("sender") and not (ev.get("recipient") or ev.get("status")):
+                        self._pending_sender = {"value": ev.get("sender"), "ts": ev.get("timestamp")}
+                        if self.verbose:
+                            print(f"[agent] pending sender set to {ev.get('sender')}")
+                        # do not emit this line as an event
+                        continue
+                    # If QID event lacks sender, try to attach the most recent pending sender if fresh
                     if ev.get("qid"):
+                        if not ev.get("sender") and self._pending_sender.get("value"):
+                            try:
+                                pts = datetime.fromisoformat(self._pending_sender["ts"]) if isinstance(self._pending_sender.get("ts"), str) else self._pending_sender.get("ts")
+                            except Exception:
+                                pts = None
+                            if pts and (datetime.fromisoformat(ev["timestamp"]) - pts).total_seconds() <= 15:
+                                ev["sender"] = self._pending_sender["value"]
+                                if self.verbose:
+                                    print(f"[agent] attached pending sender {ev['sender']} to qid={ev['qid']}")
+                                # clear after use
+                                self._pending_sender = {"value": None, "ts": None}
                         # update cache and check for completion
                         if ev.get("completed"):
                             flushed = self._flush_qid(ev["qid"])  # flush if exists
